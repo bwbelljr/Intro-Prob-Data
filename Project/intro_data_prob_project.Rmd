@@ -1,0 +1,146 @@
+---
+title: "Exploring the BRFSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+```
+
+### Load data
+
+
+```{r load-data}
+load("brfss2013.RData")
+```
+
+
+
+* * *
+
+## Part 1: Data
+
+The data is collected through monthly interviews for the non-institutionalized
+adult population (18 years or older) in the USA. For the USA, this includes not
+only the 50 states but also D.C, US Virgin Islands, Guam, and Puerto Rico.
+Because BRFSS uses Random Digit Dialing (RDD), it represents a random sample and its results can presumably be used for inference at the national and state levels. However, because the survey is disseminated over the phone, it might exclude the very poor who may not have access to landline or mobile phones. 
+
+Because there is no random assignment, this dataset cannot be used to infer causality. Even if we find strong associations among variables, confounders
+may mask the true causal factors involved. However, this rich dataset can serve as a tool for exploratory data analysis and to detect correlational relationships between or among variables.
+* * *
+
+## Part 2: Research questions
+
+**Research quesion 1: Which U.S. State had most people overweight or obese?**
+
+**Research quesion 2: In California, how does sleep time vary per month? And in which month do people get the most sleep?**
+
+**Research quesion 3: In the USA, is there some association between number of people in a household and self-reported depression over the past 30 days?**
+
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+
+**Research quesion 1: Which U.S. State had most people overweight or obese?**
+
+```{r}
+# let's create a smaller dataframe with only the BMI and state variables.
+state_weight_df <- subset(brfss2013, select = c(X_rfbmi5, X_state))
+
+# create a dataframe with only complete cases
+complete_state_weight_df <- na.omit(state_weight_df)
+
+# Since we do not assume the number sampled is the same for each "state", we 
+# will calculate the percentage of obesity per state and then sort in 
+# descending order.
+
+complete_state_weight_df %>%
+  group_by(X_state) %>%
+  summarise(obesity_rate = sum( X_rfbmi5 == "Yes"  ) / n()) %>%
+  arrange(desc(obesity_rate))
+
+# Mississippi seems to be the state with the highest rate of overweight
+# or obese residents.
+# Note that because I used complete cases, the non-response could potentially
+# bias the estimates.
+
+```
+
+
+
+**Research quesion 2: In California, how does sleep time vary per month? And in which month do people get the most sleep?**
+
+```{r}
+# Create smaller dataframe with only California
+brfss2013_CA <- subset(brfss2013, X_state == "California")
+
+# Create smaller dataframe with variables of interest: month and sleep time
+brfss2013_CA_smalldf <- subset(brfss2013_CA, select=c(fmonth, sleptim1))
+
+# Omit NA's to create a dataframe with complete cases
+complete_brfss2013_CA_smalldf <- na.omit(brfss2013_CA_smalldf)
+
+# Calculate mean sleep time per month in descending order
+complete_brfss2013_CA_smalldf %>%
+  group_by(fmonth) %>%
+  summarise(mean_sleep = mean(sleptim1)) %>%
+  arrange(desc(mean_sleep))
+
+# The month with most sleep time is August. Maybe this coincides with 
+# summer vacation? The monthwith second largest sleep time is December, and
+# this coincides with winter vacation and the holidays.
+
+# We can visualize the distributions of sleep time across months using 
+# side-by-side box plots:
+  
+ggplot(complete_brfss2013_CA_smalldf, aes(x = factor(fmonth), y = sleptim1)) +
+  geom_boxplot()
+
+# Finally, I must reiterate that though it was necessary to calculate values
+# only for complete cases, this coud bias the estimates if the missingness
+# was informative.
+
+```
+
+
+
+**Research quesion 3: In the USA, is there some association between number of people in a household and self-reported depression over the past 30 days?**
+
+```{r}
+
+# First, I create a smaller dataframe with variables of interest
+small_brfss2013_df <- subset(brfss2013, select=c(numadult, children, qlmentl2))
+
+# Second, I create a dataframe with only complete cases
+complete_small_brfss2013_df <- na.omit(small_brfss2013_df)
+
+# Third, I add the number of adults and children to create a new variable
+# representing the number of people in the household
+complete_small_brfss2013_df$num_hh <- as.numeric(complete_small_brfss2013_df$numadult) + complete_small_brfss2013_df$children
+
+# Finally, I graph the results on a scatterplot
+ggplot(data = complete_small_brfss2013_df, aes(x = num_hh, y = qlmentl2)) +
+  geom_point()
+
+# There does NOT seem to be any relationship between number of people in the
+# household and self-reported depression over the past 30 days. 
+# 
+# As I mentioned
+# in previous questions, if missingness if correlated with numbers of people
+# in the household or depression, then the estimates I just calculated may be
+# biased.
+
+```
+
